@@ -1,4 +1,4 @@
-import  { promises as fsPromises } from 'fs';
+import { promises as fsPromises } from 'fs';
 import path from 'path';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -28,73 +28,94 @@ const port: number = 8000;
 // path to test user data
 const dataFile = '../data/users.json';
 
-let users: User[];
+
+let users: User[] = [];
 
 // a synchronous function that reads the user data from the file
 async function readUsersFile() {
   try {
-    console.log('reading file ... ');
+    console.log('Reading file ... ');
     const data = await fsPromises.readFile(path.resolve(__dirname, dataFile));
     users = JSON.parse(data.toString());
-    console.log('File read successfully');
+    //console.log('Users loaded:', users);
   } catch (err) {
-    console.error('Error reading file:', err);
+    //console.error('Error reading file:', err);
     throw err;
   }
 }
 
+// Load user data on server start
 readUsersFile();
 
-// a middleware function that adds the users data to the request object
-const addMsgToRequest = (req: UserRequest, res: Response, next: NextFunction) => {
-  if (users) {
+// Middleware function to add user data to the request object
+const addUsersToRequest = (req: UserRequest, res: Response, next: NextFunction) => {
+  //console.log('Checking users:', users);  // Log users data here
+  if (users.length > 0) {
     req.users = users;
     next();
   } else {
-    return res.json({
-      error: { message: 'users not found', status: 404 }
-    });
+    console.error('No users loaded');
+    return res.status(404).json({ error: { message: 'Users not found', status: 404 } });
   }
 };
+// apply middleware before the route
+//app.use(addUsersToRequest);
 
-// a middleware function the verifies the origin of the request using a cors package
+// Middleware to verify request origin using CORS
 app.use(cors({ origin: 'http://localhost:3000' }));
-// adds the middleware function to the application
-app.use('/read/usernames', addMsgToRequest);
 
-// a route that sends the usernames of the users to the client
+app.use(addUsersToRequest);
+
+// Route to fetch usernames of all users
 app.get('/read/usernames', (req: UserRequest, res: Response) => {
-  let usernames = req.users?.map((user) => {
-    return { id: user.id, username: user.username };
-  });
-  res.send(usernames);
+  const usernames = req.users?.map((user) => ({ id: user.id, username: user.username }));
+  res.json(usernames);
 });
 
-// a middleware function that parses the request body to json
+// Route to fetch a user's email by username
+app.get('/read/username/:name', async (req: UserRequest, res: Response) => {
+  try {
+    const { name } = req.params;
+    const user = users.find((user) => user.username === name);
+
+    if (!user) {
+      console.error(`User not found: ${name}`);
+      return res.status(404).json({ error: { message: 'User not found', status: 404 } });
+    }
+
+    console.log(`email: ${user.email}`);
+    console.log(`Sending response: ${JSON.stringify({ email: user.email })}`);
+    return res.status(200).json({ id: user.id, email: user.email });
+  } catch (err) {
+    console.error('Error fetching user email:', err);
+    return res.status(500).json({ error: { message: 'Error getting user email', status: 500 } });
+  }
+});
+
+// Middleware to parse request body as JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// adds the middleware function to the application for POST requests
-app.use('/write/adduser', addMsgToRequest);
 
-// a route that receives a user object and saves it to the user data file
-app.post('/write/adduser', async (req: UserRequest, res: Response) => {
+// Route to add a new user and save to the data file
+app.post('/write/adduser', addUsersToRequest, async (req: UserRequest, res: Response) => {
   try {
-    let newuser = req.body as User;
-    users.push(newuser);
-    
-    await fsPromises.writeFile(
-      path.resolve(__dirname, dataFile), 
-      JSON.stringify(users)
-    );
-    
-    console.log('User Saved');
+    const newUser = req.body as User;
+    users.push(newUser);
+
+    await fsPromises.writeFile(path.resolve(__dirname, dataFile), JSON.stringify(users));
+
+    console.log('User saved successfully');
     res.send('done');
   } catch (err) {
-    console.log('Failed to write:', err);
+    //console.error('Failed to write:', err);
     res.status(500).send('Error saving user');
   }
 });
 
+
+// Start the server
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
+
+

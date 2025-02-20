@@ -66,6 +66,7 @@ app.get('/read/usernames', (req: UserRequest, res: Response) => {
   res.send(usernames);
 });
 
+
 // middleware function that parses the request body to json
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -94,3 +95,4 @@ app.post('/write/adduser', async (req: UserRequest, res: Response) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
+
