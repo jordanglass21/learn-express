@@ -83,9 +83,9 @@ app.get('/read/username/:name', async (req: UserRequest, res: Response) => {
       return res.status(404).json({ error: { message: 'User not found', status: 404 } });
     }
 
-    console.log(`email: ${user.email}`);
-    console.log(`Sending response: ${JSON.stringify({ email: user.email })}`);
-    return res.status(200).json({ id: user.id, email: user.email });
+    //console.log(`email: ${user.email}`);
+    //console.log(`Sending response: ${JSON.stringify({ email: user.email })}`);
+    return res.status(200).json([{ id: user.id, email: user.email }]);
   } catch (err) {
     console.error('Error fetching user email:', err);
     return res.status(500).json({ error: { message: 'Error getting user email', status: 500 } });
